@@ -1,0 +1,6 @@
+{
+  "name": "DieselFlow",
+  "description": "Fleet fuel management and daily metered dispensing grid with Google Sheets telemetry reconciliation",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
