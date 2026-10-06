@@ -181,7 +181,7 @@ fun TopNavigationHeader(
                                 .border(1.dp, DieselTertiaryFixedDim, CircleShape)
                         )
                         Text(
-                            text = "SYNCED TO SHEET1",
+                            text = "SUPABASE LIVE",
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 0.5.sp

@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.model.UserEntity
 import com.example.data.repository.DieselFlowRepository
+import com.example.ui.components.AccessDeniedScreen
 import com.example.ui.components.BottomNavigationBar
 import com.example.ui.components.NavigationTab
 import com.example.ui.components.TopNavigationHeader
@@ -54,20 +55,41 @@ fun MainScreen(
         return
     }
 
-    val user = currentUser!!
     val allLogs by repository.allLogs.collectAsStateWithLifecycle(initialValue = emptyList())
     val allAssets by repository.allAssets.collectAsStateWithLifecycle(initialValue = emptyList())
     val allUsers by repository.allUsers.collectAsStateWithLifecycle(initialValue = emptyList())
 
-    var currentTab by remember { mutableStateOf(NavigationTab.DAILY_LOG) }
+    // Reactively refresh current user from database whenever Admin modifies permissions in real-time
+    val user = allUsers.find { it.username.equals(currentUser?.username, ignoreCase = true) } ?: currentUser!!
+
+    // If account was disabled by Admin, auto-logout immediately
+    if (!user.isActive && !user.isAdmin) {
+        currentUser = null
+        return
+    }
+
+    // Function to resolve first allowed tab for restricted users
+    fun getFirstAllowedTab(): NavigationTab {
+        return when {
+            user.canViewDailyLog || user.isAdmin -> NavigationTab.DAILY_LOG
+            user.canViewMonthlyGrid || user.isAdmin -> NavigationTab.MONTHLY_GRID
+            user.canViewFleetSummary || user.isAdmin -> NavigationTab.FLEET_SUMMARY
+            user.canEditSettings || user.isAdmin -> NavigationTab.SETTINGS_RATES
+            else -> NavigationTab.DAILY_LOG
+        }
+    }
+
+    var currentTab by remember { mutableStateOf(getFirstAllowedTab()) }
     var selectedDay by remember { mutableIntStateOf(24) }
 
     var showUserConsole by remember { mutableStateOf(false) }
     var showUnitManagement by remember { mutableStateOf(false) }
 
-    // BackHandler: if on modal/console or not on Daily Log, return to Daily Log
-    BackHandler(enabled = currentTab != NavigationTab.DAILY_LOG) {
-        currentTab = NavigationTab.DAILY_LOG
+    val defaultAllowedTab = getFirstAllowedTab()
+
+    // BackHandler: return to first allowed tab
+    BackHandler(enabled = currentTab != defaultAllowedTab) {
+        currentTab = defaultAllowedTab
     }
 
     val headerSubtitle = when (currentTab) {
@@ -94,10 +116,14 @@ fun MainScreen(
                     selectedDay = 24 // Reset to Today
                 },
                 onOpenUserConsole = {
-                    showUserConsole = true
+                    if (user.canManageUsers || user.isAdmin) {
+                        showUserConsole = true
+                    }
                 },
                 onOpenUnitManagement = {
-                    showUnitManagement = true
+                    if (user.canManageUnits || user.isAdmin) {
+                        showUnitManagement = true
+                    }
                 },
                 onLogout = {
                     currentUser = null
@@ -107,6 +133,7 @@ fun MainScreen(
         bottomBar = {
             BottomNavigationBar(
                 currentTab = currentTab,
+                currentUser = user,
                 onTabSelected = { currentTab = it }
             )
         }
@@ -123,51 +150,87 @@ fun MainScreen(
             ) { targetTab ->
                 when (targetTab) {
                     NavigationTab.DAILY_LOG -> {
-                        DailyLogScreen(
-                            currentDay = selectedDay,
-                            onSelectDay = { selectedDay = it },
-                            repository = repository,
-                            allLogs = allLogs,
-                            assets = allAssets,
-                            currentUser = user
-                        )
+                        if (user.canViewDailyLog || user.isAdmin) {
+                            DailyLogScreen(
+                                currentDay = selectedDay,
+                                onSelectDay = { selectedDay = it },
+                                repository = repository,
+                                allLogs = allLogs,
+                                assets = allAssets,
+                                currentUser = user
+                            )
+                        } else {
+                            AccessDeniedScreen(
+                                screenTitle = "Daily Fuel Log Terminal",
+                                requiredPermissionName = "Can View Daily Log",
+                                currentUser = user,
+                                onNavigateBack = { currentTab = getFirstAllowedTab() }
+                            )
+                        }
                     }
 
                     NavigationTab.MONTHLY_GRID -> {
-                        MonthlyGridScreen(
-                            currentDay = selectedDay,
-                            onSelectDay = { selectedDay = it },
-                            allLogs = allLogs,
-                            assets = allAssets,
-                            repository = repository,
-                            currentUser = user,
-                            onNavigateToDailyLog = { currentTab = NavigationTab.DAILY_LOG }
-                        )
+                        if (user.canViewMonthlyGrid || user.isAdmin) {
+                            MonthlyGridScreen(
+                                currentDay = selectedDay,
+                                onSelectDay = { selectedDay = it },
+                                allLogs = allLogs,
+                                assets = allAssets,
+                                repository = repository,
+                                currentUser = user,
+                                onNavigateToDailyLog = { currentTab = NavigationTab.DAILY_LOG }
+                            )
+                        } else {
+                            AccessDeniedScreen(
+                                screenTitle = "Monthly Grid Spreadsheet",
+                                requiredPermissionName = "Can View Monthly Grid",
+                                currentUser = user,
+                                onNavigateBack = { currentTab = getFirstAllowedTab() }
+                            )
+                        }
                     }
 
                     NavigationTab.FLEET_SUMMARY -> {
-                        FleetSummaryScreen(
-                            allLogs = allLogs,
-                            assets = allAssets
-                        )
+                        if (user.canViewFleetSummary || user.isAdmin) {
+                            FleetSummaryScreen(
+                                allLogs = allLogs,
+                                assets = allAssets
+                            )
+                        } else {
+                            AccessDeniedScreen(
+                                screenTitle = "Fleet Summary Analytics",
+                                requiredPermissionName = "Can View Fleet Summary",
+                                currentUser = user,
+                                onNavigateBack = { currentTab = getFirstAllowedTab() }
+                            )
+                        }
                     }
 
                     NavigationTab.SETTINGS_RATES -> {
-                        SettingsRatesScreen(
-                            assets = allAssets,
-                            repository = repository,
-                            currentUser = user,
-                            onOpenUserConsole = { showUserConsole = true },
-                            onOpenUnitManagement = { showUnitManagement = true }
-                        )
+                        if (user.canEditSettings || user.isAdmin) {
+                            SettingsRatesScreen(
+                                assets = allAssets,
+                                repository = repository,
+                                currentUser = user,
+                                onOpenUserConsole = { showUserConsole = true },
+                                onOpenUnitManagement = { showUnitManagement = true }
+                            )
+                        } else {
+                            AccessDeniedScreen(
+                                screenTitle = "Settings & Master Rates",
+                                requiredPermissionName = "Can Edit Settings & Fuel Rates",
+                                currentUser = user,
+                                onNavigateBack = { currentTab = getFirstAllowedTab() }
+                            )
+                        }
                     }
                 }
             }
         }
     }
 
-    // Modal Overlays
-    if (showUserConsole) {
+    // Modal Overlays strictly guarded by permissions
+    if (showUserConsole && (user.canManageUsers || user.isAdmin)) {
         UserConsoleBottomSheet(
             users = allUsers,
             currentUser = user,
@@ -176,7 +239,7 @@ fun MainScreen(
         )
     }
 
-    if (showUnitManagement) {
+    if (showUnitManagement && (user.canManageUnits || user.isAdmin)) {
         UnitManagementBottomSheet(
             assets = allAssets,
             repository = repository,

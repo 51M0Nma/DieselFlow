@@ -261,6 +261,38 @@ fun MonthlyGridScreen(
             }
         }
 
+        // Read-Only Warning if user cannot edit grid
+        if (!canEdit) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(DieselPrimary.copy(alpha = 0.12f))
+                    .border(1.dp, DieselPrimary.copy(alpha = 0.35f), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = null,
+                        tint = DieselPrimary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = "READ-ONLY SPREADSHEET: Edit permission is restricted for your account. You can view rows but cannot modify values.",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp
+                        ),
+                        color = DieselPrimary
+                    )
+                }
+            }
+        }
+
         // Month Stepper & Progress Tracker Card
         Card(
             modifier = Modifier.fillMaxWidth(),

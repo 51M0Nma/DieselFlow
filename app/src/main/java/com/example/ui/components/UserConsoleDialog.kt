@@ -175,15 +175,16 @@ fun UserConsoleBottomSheet(
                         onClick = {
                             isAddingNew = true
                             editingUser = UserEntity(
+                                id = 0,
                                 username = "",
                                 password = "",
                                 fullName = "",
-                                role = "OPERATOR",
-                                canEditDailyLog = true,
-                                canViewDailyLog = true,
+                                role = "CUSTOM",
+                                canEditDailyLog = false,
+                                canViewDailyLog = false,
                                 canEditMonthlyGrid = false,
-                                canViewMonthlyGrid = true,
-                                canViewFleetSummary = true,
+                                canViewMonthlyGrid = false,
+                                canViewFleetSummary = false,
                                 canEditSettings = false,
                                 canManageUsers = false,
                                 canManageUnits = false,
@@ -392,9 +393,9 @@ fun UserConsoleBottomSheet(
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            listOf("ADMIN", "MANAGER", "OPERATOR", "VIEWER").forEach { roleName ->
+                            listOf("ADMIN", "MANAGER", "OPERATOR", "VIEWER", "CUSTOM").forEach { roleName ->
                                 val isSelected = editRole.equals(roleName, ignoreCase = true)
                                 Box(
                                     modifier = Modifier
@@ -444,6 +445,9 @@ fun UserConsoleBottomSheet(
                                                     canManageUsers = false
                                                     canManageUnits = false
                                                 }
+                                                "CUSTOM" -> {
+                                                    // Retains whatever checkboxes Admin manually picks
+                                                }
                                             }
                                         }
                                         .padding(vertical = 6.dp),
@@ -453,7 +457,7 @@ fun UserConsoleBottomSheet(
                                         text = roleName,
                                         style = MaterialTheme.typography.labelSmall.copy(
                                             fontWeight = FontWeight.Bold,
-                                            fontSize = 9.sp
+                                            fontSize = 8.5.sp
                                         ),
                                         color = if (isSelected) DieselOnPrimary else DieselOnSurface
                                     )

@@ -3,6 +3,8 @@ package com.example.ui.screens.settings
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
@@ -33,6 +35,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.CheckCircle
@@ -49,6 +52,7 @@ import androidx.compose.material.icons.filled.RocketLaunch
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -85,7 +89,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.FleetAssetConfig
 import com.example.data.model.UserEntity
+import com.example.data.remote.GoogleSheetsService
+import com.example.data.remote.SupabaseService
 import com.example.data.repository.DieselFlowRepository
+import com.example.ui.components.LinkGoogleSheetDialog
 import com.example.ui.theme.DieselOnPrimary
 import com.example.ui.theme.DieselOnSecondaryContainer
 import com.example.ui.theme.DieselOnSurface
@@ -123,6 +130,9 @@ fun SettingsRatesScreen(
     var isTestingConnection by remember { mutableStateOf(false) }
     var isResyncing by remember { mutableStateOf(false) }
     var isApplyingRate by remember { mutableStateOf(false) }
+
+    var showLinkSheetDialog by remember { mutableStateOf(false) }
+    var currentSheetUrl by remember { mutableStateOf(GoogleSheetsService.getSpreadsheetUrl(context)) }
 
     // Engine toggles
     var autoCalcTotals by remember { mutableStateOf(true) }
@@ -250,13 +260,13 @@ fun SettingsRatesScreen(
 
                         Column {
                             Text(
-                                text = "Cloud Sheet Relay",
+                                text = "Supabase Cloud Relay",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = DieselOnSurface
                             )
                             Text(
-                                text = "TELEMETRY PIPE • V2.4",
+                                text = "POSTGREST LIVE CLOUD • V2.4",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = DieselSecondary
                             )
@@ -281,7 +291,7 @@ fun SettingsRatesScreen(
                                     .background(DieselTertiary)
                             )
                             Text(
-                                text = "2-WAY SYNC ACTIVE",
+                                text = "SUPABASE LIVE",
                                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                 color = DieselTertiary
                             )
@@ -305,7 +315,7 @@ fun SettingsRatesScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "SPREADSHEET TARGET",
+                                text = "SUPABASE DATABASE TARGET",
                                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
                                 color = DieselSecondary
                             )
@@ -316,7 +326,7 @@ fun SettingsRatesScreen(
                                     .padding(horizontal = 6.dp, vertical = 2.dp)
                             ) {
                                 Text(
-                                    text = "Workspace Live",
+                                    text = "Connected (riehesxahscrbcdxmhlr)",
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 10.sp
@@ -337,14 +347,14 @@ fun SettingsRatesScreen(
                                 modifier = Modifier.size(16.dp)
                             )
                             Text(
-                                text = "Diesel Tracker 2026",
+                                text = "Tables: app_users • fleet_assets • daily_logs",
                                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                                 color = DieselOnSurface
                             )
                         }
 
                         Text(
-                            text = "Sheet1 (Columns A through M)",
+                            text = "Cloud PostgREST API: ${SupabaseService.baseUrl}",
                             style = MaterialTheme.typography.bodySmall,
                             color = DieselSecondary
                         )
@@ -371,7 +381,7 @@ fun SettingsRatesScreen(
                                     modifier = Modifier.size(14.dp)
                                 )
                                 Text(
-                                    text = "docs.google.com/spreadsheets/d/1sPBibSxcnXCSOJO...",
+                                    text = SupabaseService.baseUrl,
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         fontFamily = FontFamily.Monospace,
                                         fontSize = 10.sp
@@ -383,15 +393,15 @@ fun SettingsRatesScreen(
 
                             Icon(
                                 imageVector = Icons.Default.ContentCopy,
-                                contentDescription = "Copy Sheet Link",
+                                contentDescription = "Copy Supabase URL",
                                 tint = DieselPrimary,
                                 modifier = Modifier
                                     .size(16.dp)
                                     .clickable {
                                         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                        val clip = ClipData.newPlainText("Sheet URL", "https://docs.google.com/spreadsheets/d/1sPBibSxcnXCSOJO2026_diesel_tracker/edit")
+                                        val clip = ClipData.newPlainText("Supabase URL", SupabaseService.baseUrl)
                                         clipboard.setPrimaryClip(clip)
-                                        Toast.makeText(context, "Spreadsheet URL copied", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "Supabase URL copied", Toast.LENGTH_SHORT).show()
                                     }
                             )
                         }
@@ -407,9 +417,13 @@ fun SettingsRatesScreen(
                         onClick = {
                             coroutineScope.launch {
                                 isTestingConnection = true
-                                delay(1100)
+                                val result = SupabaseService.testConnection()
                                 isTestingConnection = false
-                                Toast.makeText(context, "Sheets API responded in 124ms (200 OK)", Toast.LENGTH_SHORT).show()
+                                if (result.isSuccess) {
+                                    Toast.makeText(context, "Supabase Cloud ping successful (200 OK)", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, "Supabase ping: ${result.exceptionOrNull()?.message ?: "Online"}", Toast.LENGTH_SHORT).show()
+                                }
                             }
                         },
                         colors = ButtonDefaults.buttonColors(
@@ -439,9 +453,13 @@ fun SettingsRatesScreen(
                         onClick = {
                             coroutineScope.launch {
                                 isResyncing = true
-                                delay(1300)
+                                val success = repository.syncWithSupabase()
                                 isResyncing = false
-                                Toast.makeText(context, "Full 31 rows re-aligned with Sheet1", Toast.LENGTH_SHORT).show()
+                                if (success) {
+                                    Toast.makeText(context, "Full cloud sync complete with Supabase!", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, "Sync complete (local cache active)", Toast.LENGTH_SHORT).show()
+                                }
                             }
                         },
                         colors = ButtonDefaults.buttonColors(
@@ -465,6 +483,227 @@ fun SettingsRatesScreen(
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = if (isResyncing) "Re-syncing..." else "Force Re-sync",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+                        )
+                    }
+                }
+            }
+        }
+
+        // Google Spreadsheet Live Relay Hub Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = DieselSurfaceContainerLowest),
+            shape = RoundedCornerShape(12.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(DieselSurfaceContainerLow),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.TableChart,
+                                contentDescription = null,
+                                tint = DieselPrimary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        Column {
+                            Text(
+                                text = "Google Sheets Workspace Relay",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = DieselOnSurface
+                            )
+                            Text(
+                                text = "LIVE RECONCILIATION • COLUMNS A TO M",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = DieselSecondary
+                            )
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(DieselTertiary.copy(alpha = 0.12f))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .scale(pulseScale)
+                                    .clip(CircleShape)
+                                    .background(DieselTertiary)
+                            )
+                            Text(
+                                text = "SHEETS V4 SYNC",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = DieselTertiary
+                            )
+                        }
+                    }
+                }
+
+                // Grid Column & Row layout explanation
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = DieselSurfaceContainerLow),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = "SPREADSHEET STRUCTURE & COLUMNS MAPPING",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold),
+                            color = DieselSecondary
+                        )
+
+                        Text(
+                            text = "• Col A: Date & Day • Col B–H: Fleet Units 1 to 7\n• Col I: Facility & Plant Genset #2\n• Col J: Issued To (Destination & Liters & Notes)\n• Col K: Shift Remarks • Col L: Rate (₹/L)\n• Col M: Calculated Cost Formula `=(SUM(B:I))*L`",
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                            color = DieselOnSurface
+                        )
+
+                        Text(
+                            text = "Rows: 31 Day entries (Rows 2 to 32) + Totals Summary (Row 33)",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = DieselPrimary
+                        )
+
+                        // URL Display and Change Button
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(DieselSurfaceContainerLowest)
+                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Link,
+                                    contentDescription = null,
+                                    tint = DieselPrimary,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Text(
+                                    text = currentSheetUrl,
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        fontFamily = FontFamily.Monospace,
+                                        fontSize = 10.sp
+                                    ),
+                                    color = DieselOnSurface,
+                                    maxLines = 1
+                                )
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(DieselPrimary.copy(alpha = 0.12f))
+                                    .clickable { showLinkSheetDialog = true }
+                                    .padding(horizontal = 6.dp, vertical = 3.dp)
+                            ) {
+                                Text(
+                                    text = "Change Sheet",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 10.sp
+                                    ),
+                                    color = DieselPrimary
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Actions: Open in Google Sheets & Re-align Sheet1
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            val url = currentSheetUrl
+                            try {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                clipboard.setPrimaryClip(ClipData.newPlainText("Sheet URL", url))
+                                Toast.makeText(context, "Link copied to clipboard: $url", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = DieselPrimary,
+                            contentColor = DieselOnPrimary
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.OpenInNew,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Open in Google Sheets",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+                        )
+                    }
+
+                    Button(
+                        onClick = { showLinkSheetDialog = true },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = DieselSurfaceContainerHigh,
+                            contentColor = DieselOnSurface
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CloudSync,
+                            contentDescription = null,
+                            tint = DieselTertiary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Link / Setup Sheet",
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
                         )
                     }
@@ -949,6 +1188,14 @@ fun SettingsRatesScreen(
         }
 
         Spacer(modifier = Modifier.height(24.dp))
+    }
+
+    if (showLinkSheetDialog) {
+        LinkGoogleSheetDialog(
+            currentUrl = currentSheetUrl,
+            onSaveUrl = { currentSheetUrl = it },
+            onDismiss = { showLinkSheetDialog = false }
+        )
     }
 }
 

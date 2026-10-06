@@ -345,6 +345,38 @@ fun DailyLogScreen(
             }
         }
 
+        // Read-Only Notice if user does not have edit permission
+        if (!canEdit) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(DieselPrimary.copy(alpha = 0.12f))
+                    .border(1.dp, DieselPrimary.copy(alpha = 0.35f), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = null,
+                        tint = DieselPrimary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = "READ-ONLY ACCESS: You do not have permission to edit or save daily fuel slips. Viewing mode only.",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp
+                        ),
+                        color = DieselPrimary
+                    )
+                }
+            }
+        }
+
         // Daily Computation Bento Card
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -1167,6 +1199,33 @@ fun DailyLogScreen(
                             letterSpacing = 0.5.sp
                         ),
                         color = DieselOnPrimary
+                    )
+                }
+            }
+        } else {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = DieselSurfaceContainerLow),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = null,
+                        tint = DieselSecondary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "EDITING RESTRICTED (Edit Daily Log permission required)",
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                        color = DieselSecondary
                     )
                 }
             }
